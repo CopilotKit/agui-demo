@@ -60,7 +60,7 @@ export const AGUI = () => {
             if (state.tavily_response) {
                 console.log("state", state.tavily_response)
                 return (
-                    <div className="bg-white p-6 rounded shadow-lg border text-black border-gray-200 mt-5 mb-5">
+                    <div className="bg-white p-6 rounded shadow-lg border text-black border-gray-200 mt-5 mb-5" key={state.tavily_response.length}>
                         <div className="space-y-4">
                             {state.tavily_response.map((item: any, index: number) => (
                                 <div key={index} className="flex items-center space-x-3">
@@ -85,7 +85,7 @@ export const AGUI = () => {
                 const { steps, japanese, english } = state.haiku_verification
                 
                 return (
-                    <div className="bg-white p-6 rounded shadow-lg border text-black border-gray-200 mt-5 mb-5">
+                    <div className="bg-white p-6 rounded shadow-lg border text-black border-gray-200 mt-5 mb-5" key={state.haiku_verification.steps.length}>
                         <div className="space-y-4">
                             {steps.map((step: any, index: number) => (
                                 <div key={index} className="flex items-center space-x-3">
@@ -139,43 +139,6 @@ export const AGUI = () => {
                     setEnglish(args.english)
                 }
             }, [args])
-            
-            // Function to safely respond only once
-            const safeRespond = (accepted: boolean) => {
-                if (!respondedRef.current) {
-                    respondedRef.current = true;
-                    console.log("Responding with:", accepted);
-                    // respond({ accepted });
-                }
-            };
-            
-            // const handleAccept = () => {
-            //     if (respondedRef.current || haikuAccepted) {
-            //         console.log("Already responded or accepted, ignoring click");
-            //         return;
-            //     }
-                
-            //     setUserChoice("accepted");
-            //     setHaikuAccepted(true);
-            //     safeRespond(true);
-            // };
-
-            // const handleRecreate = () => {
-            //     if (respondedRef.current || haikuAccepted) {
-            //         console.log("Already responded or accepted, ignoring click");
-            //         return;
-            //     }
-                
-            //     setUserChoice("recreate");
-            //     safeRespond(false);
-            // };
-
-            // If haiku already accepted in parent component, update local UI state
-            // useEffect(() => {
-            //     if (haikuAccepted && userChoice === null) {
-            //         setUserChoice("accepted");
-            //     }
-            // }, [haikuAccepted, userChoice]);
 
             return (
                 <div className="bg-gradient-to-br from-white to-blue-50 p-8 rounded-xl shadow-lg border border-blue-100 max-w-3xl my-6 transform hover:scale-[1.02] transition-transform duration-300">
@@ -206,36 +169,6 @@ export const AGUI = () => {
                         </div>
                     </div>
                     
-                    {/* {userChoice === null && !haikuAccepted && (
-                        <div className="flex justify-center gap-4 mt-8">
-                            <button 
-                                onClick={handleAccept}
-                                className={`px-6 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 font-medium transition-colors ${
-                                    status === "executing" && !respondedRef.current ? "cursor-pointer" : "cursor-default opacity-50"
-                                }`}
-                                disabled={status !== "executing" || respondedRef.current}
-                            >
-                                Accept Haiku
-                            </button>
-                            <button 
-                                onClick={handleRecreate}
-                                className={`px-6 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 font-medium transition-colors ${
-                                    status === "executing" && !respondedRef.current ? "cursor-pointer" : "cursor-default opacity-50"
-                                }`}
-                                disabled={status !== "executing" || respondedRef.current}
-                            >
-                                Generate New Haiku
-                            </button>
-                        </div>
-                    )}
-                     */}
-                    {/* {(userChoice !== null || haikuAccepted) && (
-                        <div className="mt-6 text-center">
-                            <div className="mt-4 bg-gray-200 text-black py-2 px-4 rounded inline-block">
-                                {userChoice === "accepted" || haikuAccepted ? "✓ Haiku Accepted" : "⟳ Generating New Haiku..."}
-                            </div>
-                        </div>
-                    )} */}
                 </div>
             )
         }
@@ -245,7 +178,7 @@ export const AGUI = () => {
     console.log("visibleMessages", visibleMessages)
 
     return (
-        <div className="h-screen w-screen bg-white flex flex-col">
+        <div className="w-screen bg-white flex flex-col overflow-hidden" style={{ height: '100vh' }}>
             {/* Logo in the top left */}
             <div className="p-8 bg-white flex items-center">
                 <div className="flex items-center mr-4">
@@ -261,14 +194,14 @@ export const AGUI = () => {
             
             {/* Welcome message that disappears when there are messages */}
             {visibleMessages.length === 0 && (
-                <div className="absolute top-[25%] left-70 z-40">
+                <div className="absolute top-[25%] left-0 right-0 mx-auto w-full max-w-3xl z-40 pl-10">
                     <h1 className="text-4xl font-bold text-black mb-3">Hello there!</h1>
                     <p className="text-2xl text-gray-500">Tell me a topic to create a haiku about it.</p>
                 </div>
             )}
             
-            <div className="flex-1 flex justify-center items-center bg-white">
-                <CopilotChat  className="h-full w-300 py-6" />
+            <div className="flex-1 flex justify-center items-center bg-white overflow-y-auto">
+                <CopilotChat className="w-full max-w-3xl flex flex-col h-full py-6" />
             </div>
         </div>
     )
