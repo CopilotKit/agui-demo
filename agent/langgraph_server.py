@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 import uuid
 from typing import Dict, List, Any, Optional
-
+import os
+import uvicorn
 # LangGraph imports
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
@@ -42,7 +43,16 @@ async def root():
     return {"message": "Hello World!!"}
 
 
+def main():
+    """Run the uvicorn server."""
+    port = int(os.getenv("PORT", "8000"))
+    uvicorn.run(
+        "langgraph_server:app",
+        host="0.0.0.0",
+        port=port,
+        reload=True,
+    )
+
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    main()
 

@@ -41,3 +41,7 @@ frontend/.vercel
 # typescript
 frontend/*.tsbuildinfo
 next-env.d.ts
+
+agent/__pycache__*
+agent/pycache*
+agent/__pycache__/agent.cpython-312.pyc
