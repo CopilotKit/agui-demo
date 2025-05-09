@@ -1,17 +1,19 @@
 import json
 import uuid
 from typing import Dict, List, Any, Optional
+from tavily import TavilyClient
 
 # LangGraph imports
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, END, START
 from langgraph.types import Command
 from langgraph.checkpoint.memory import MemorySaver
-
+import asyncio
 # CopilotKit imports
 from copilotkit import CopilotKitState
 from copilotkit.langgraph import (
-    copilotkit_customize_config
+    copilotkit_customize_config,
+    copilotkit_emit_state
 )
 from copilotkit.langgraph import (copilotkit_exit)
 # OpenAI imports
@@ -27,7 +29,7 @@ class AgentState(CopilotKitState):
     The state of the agent.
     """
     haiku: Optional[str] = None
-
+    tavily_response: Optional[List[Dict[str, Any]]] = None
 
 async def start_flow(state: AgentState, config: RunnableConfig):
     """
@@ -42,13 +44,36 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     """
     Standard chat node.
     """
+    tavily_response = []
+    print("Last MEssage: ",state["messages"][-1])
+    if(state["messages"][-1].name != "haiku_master_verify"):
+        tavily_client = TavilyClient(api_key="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")
+        print("tavily search: ",state["messages"][-1].content)
+        tavily_response = tavily_client.search(state["messages"][-1].content,'basic','news','week',7,3)
+        tavily_response = tavily_response['results']
+        tavily_response = list(map(lambda x: {
+            'url': x['url'],
+            'title': x['title'],
+            'content': x['content'],
+            'completed': False,
+            'published_date': x.get('published_date')  # Using get() in case published_date doesn't exist
+        }, tavily_response))
+        state['tavily_response'] = tavily_response
+        await copilotkit_emit_state(config, state)
+        
+        for item in state['tavily_response']:
+            await asyncio.sleep(1)
+            item['completed'] = True
+            await copilotkit_emit_state(config, state)
+        
     
+    # print(json.dumps(response, indent=4))
     GENERATE_HAIKU_TOOL = {
     "type": "function",
     "function": {
         "name": "generate_haiku",
         "description": f"""
-        Generate a haiku poem based on the user's request. The user's request is {state["messages"][-1].content}.
+        Generate a haiku poem based on the user's request. The user's request is {state["messages"][-1].content}. Make sure to generate the haiku strictly based on the content provided here : {tavily_response}
         """,
         "parameters": {
             "type": "object",
@@ -73,11 +98,12 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     }
 }
 
+    # print("GENERATE_HAIKU_TOOL: ",GENERATE_HAIKU_TOOL)
     system_prompt = """
     You are a helpful assistant for generating Haiku poems. 
     To generate the poem, you MUST use the generate_haiku tool.
-    Once the haiku is generated, you MUST use the confirm_changes tool to confirm the changes.
-    Once the changes are confirmed, you MUST use the render_haiku tool to render the haiku.
+    Once the haiku is generated, you MUST use the haiku_master_verify tool.
+    Once the haiku is verified, you MUST use the render_haiku tool.
     """
 
     # Define the model
@@ -85,8 +111,8 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     
     # Define config for the model with emit_intermediate_state to stream tool calls to frontend
     if config is None:
-        config = RunnableConfig(recursion_limit=25)
     
+        config = RunnableConfig(recursion_limit=25)
     # Use CopilotKit's custom config to set up streaming for the write_document tool
     # This is equivalent to copilotkit_predict_state in the CrewAI version
     config = copilotkit_customize_config(
@@ -147,11 +173,29 @@ async def chat_node(state: AgentState, config: RunnableConfig):
                 "tool_calls": [{
                     "id": str(uuid.uuid4()),
                     "function": {
-                        "name": "confirm_changes",
+                        "name": "haiku_master_verify",
                         "arguments": tool_call_args
                     }
                 }]
             }
+            
+            # render_haiku_tool_call = {
+            #     "role": "assistant",
+            #     "content": "",
+            #     "tool_calls": [{
+            #         "id": str(uuid.uuid4()),
+            #         "function": {
+            #             "name": "render_haiku",
+            #             "arguments": tool_call_args
+            #         }
+            #     }]
+            # }
+            
+            # tool_response1 = {
+            #     "role": "tool",
+            #     "content": "Generated haiku confirmed",
+            #     "tool_call_id": tool_call_id
+            # }
             
             messages = messages + [tool_response, confirm_tool_call]
             # messages = messages + [tool_response]
@@ -162,7 +206,8 @@ async def chat_node(state: AgentState, config: RunnableConfig):
                 goto=END,
                 update={
                     "messages": messages,
-                    # "haiku": tool_call_args["haiku"]
+                    # "haiku": tool_call_args["haiku"],
+                    "tavily_response": tavily_response or state['tavily_response']
                 }
             )
     
@@ -170,12 +215,11 @@ async def chat_node(state: AgentState, config: RunnableConfig):
         # Add the tool response to messages
             tool_response = {
                 "role": "tool",
-                "content": "Generated haiku confirmed",
+                "content": "Haiku rendered successfully",
                 "tool_call_id": tool_call_id
             }
             
-            
-            render_tool_call = {
+            render_haiku_tool_call = {
                 "role": "assistant",
                 "content": "",
                 "tool_calls": [{
@@ -187,13 +231,14 @@ async def chat_node(state: AgentState, config: RunnableConfig):
                 }]
             }
             
-            # messages = messages + [tool_response, render_tool_call]
+            messages = messages + [tool_response]
             
             # Return Command to route to end
             await copilotkit_exit(config)
             return Command(
                 goto=END,
                 update={
+                    # "tavily_response": tavily_response or state['tavily_response'],
                     "messages": messages,
                 }
             )
@@ -203,7 +248,8 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     return Command(
         goto=END,
         update={
-            "messages": messages
+            "messages": messages,
+            "tavily_response": tavily_response or state['tavily_response']
         }
     )
 
