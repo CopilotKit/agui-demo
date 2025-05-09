@@ -6,9 +6,19 @@ import { useCoAgent, useCoAgentStateRender, useCopilotAction, useCopilotChat } f
 import { useEffect, useState, useRef } from "react"
 import Image from "next/image"
 
+// Define the new interface for haiku objects (without image properties)
+interface generate_haiku {
+    japanese: string[];
+    english: string[];
+    // image_names: string[]; // Removed
+    // selectedImage: string | null; // Removed
+}
+
 export const AGUI = () => {
-    const [japanese, setJapanese] = useState<string[]>([])
-    const [english, setEnglish] = useState<string[]>([])
+    // Replace japanese and english state with haikus state
+    // const [japanese, setJapanese] = useState<string[]>([])
+    // const [english, setEnglish] = useState<string[]>([])
+    const [haikus, setHaikus] = useState<generate_haiku[]>([]);
     const { visibleMessages } = useCopilotChat()
     
     // Track if haiku is accepted globally to prevent loops
@@ -66,7 +76,7 @@ export const AGUI = () => {
                                             <div className="w-4 h-4 border-2 border-gray-300 rounded-full animate-spin border-t-black"></div>
                                         )}
                                     </div>
-                                    <p className="text-gray-700">Searching for recent information from the internet about {item.topic}</p>
+                                    <p className="text-gray-700">Searching internet for recent information about {item.topic}</p>
                                 </div>
                             ))}
                         </div>
@@ -123,47 +133,51 @@ export const AGUI = () => {
         followUp: false,
         render: ({ status, args }) => {
             console.log("Rendering haiku with args:", args, "Status:", status, "Accepted:", haikuAccepted, "Responded:", respondedRef.current)
-            const [userChoice, setUserChoice] = useState<string | null>(null)
             
-            // Set haiku from args or use existing state
             useEffect(() => {
                 if (args && args.japanese && args.english) {
-                    setJapanese(args.japanese)
-                    setEnglish(args.english)
+                    const haikuFromArgs: generate_haiku = {
+                        japanese: args.japanese,
+                        english: args.english,
+                        // image_names: args.image_names || [], // Removed
+                        // selectedImage: args.selectedImage || null, // Removed
+                    };
+
+                    setHaikus(prevHaikus => {
+                        const index = prevHaikus.findIndex(h =>
+                            JSON.stringify(h.japanese) === JSON.stringify(haikuFromArgs.japanese) &&
+                            JSON.stringify(h.english) === JSON.stringify(haikuFromArgs.english)
+                        );
+                        if (index !== -1) {
+                            const updatedHaikus = [...prevHaikus];
+                            updatedHaikus[index] = { ...prevHaikus[index], ...haikuFromArgs };
+                            return updatedHaikus;
+                        } else {
+                            return [...prevHaikus, haikuFromArgs];
+                        }
+                    });
                 }
-            }, [args])
+            }, [args]);
+
+            const generatedHaikuForCard: Partial<generate_haiku> = (args && args.japanese && args.english)
+                ? {
+                    japanese: args.japanese,
+                    english: args.english,
+                }
+                : { japanese: [], english: [] };
 
             return (
-                <div className="bg-gradient-to-br from-white to-blue-50 p-8 rounded-xl shadow-lg border border-blue-100 max-w-3xl my-6 transform hover:scale-[1.02] transition-transform duration-300">
-                    <div className="grid grid-cols-2 gap-12">
-                        <div className="space-y-6 relative">
-                            <div className="absolute -left-4 top-0 w-1 h-full bg-gradient-to-b from-indigo-400 to-indigo-200 rounded-full"></div>
-                            <h3 className="text-xl font-medium text-indigo-800 mb-4 flex items-center">
-                                <span className="mr-2">🇯🇵</span>
-                                Japanese
-                            </h3>
-                            <div className="space-y-4 text-black">
-                                {japanese.map((item: string, index: number) => (
-                                    <p key={index} className="text-2xl font-light leading-relaxed tracking-wide text-indigo-900">{item}</p>
-                                ))}
-                            </div>
+                <div className="suggestion-card bg-white text-left rounded-xl p-6 my-4 shadow-lg">
+                    {generatedHaikuForCard?.japanese?.map((line, index) => (
+                        <div className="flex items-baseline gap-x-3 mb-3" key={index}>
+                            <p className="text-3xl font-semibold text-gray-800">{line}</p>
+                            <p className="text-lg font-normal text-gray-500">
+                                {generatedHaikuForCard.english?.[index]}
+                            </p>
                         </div>
-                        <div className="space-y-6 relative">
-                            <div className="absolute -left-4 top-0 w-1 h-full bg-gradient-to-b from-rose-400 to-rose-200 rounded-full"></div>
-                            <h3 className="text-xl font-medium text-rose-800 mb-4 flex items-center">
-                                <span className="mr-2">🇬🇧</span>
-                                English
-                            </h3>
-                            <div className="space-y-4">
-                                {english.map((item: string, index: number) => (
-                                    <p key={index} className="text-lg text-rose-700 leading-relaxed italic">{item}</p>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                    
+                    ))}
                 </div>
-            )
+            );
         }
     })
 
@@ -189,7 +203,7 @@ export const AGUI = () => {
             {visibleMessages.length === 0 && (
                 <div className="absolute top-[25%] left-0 right-0 mx-auto w-full max-w-3xl z-40 pl-10">
                     <h1 className="text-4xl font-bold text-black mb-3">Hello, I am Haiku agent!</h1>
-                    <p className="text-2xl text-gray-500">"I can create a haiku based on a recent news topic—just tell me the subject, and I’ll turn it into poetry."</p>
+                    <p className="text-2xl text-gray-500">I can create a haiku based on a recent news topic—just tell me the subject, and I'll turn it into poetry.</p>
                 </div>
             )}
             
