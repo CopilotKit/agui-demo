@@ -267,7 +267,7 @@ export const AGUI = () => {
                 </div>
             )}
             
-            <div className="flex-1 flex justify-center items-center">
+            <div className="flex-1 flex justify-center items-center bg-white">
                 <CopilotChat  className="h-full w-300 py-6" />
             </div>
         </div>
