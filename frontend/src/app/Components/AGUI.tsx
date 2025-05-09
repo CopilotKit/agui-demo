@@ -28,13 +28,6 @@ export const AGUI = () => {
         }
     })
     
-    // Log node name and messages for debugging
-    useEffect(() => {
-        console.log("Current node name:", nodeName)
-        console.log("Has accepted:", haikuAccepted)
-        console.log("Responded ref:", respondedRef.current)
-    }, [nodeName, haikuAccepted])
-    
     // Reset the responded state when the node changes to start_flow
     useEffect(() => {
         if (nodeName === "start_flow" && !haikuAccepted) {
@@ -73,7 +66,7 @@ export const AGUI = () => {
                                             <div className="w-4 h-4 border-2 border-gray-300 rounded-full animate-spin border-t-black"></div>
                                         )}
                                     </div>
-                                    <p className="text-gray-700">Extracting information from internet about {item.topic}</p>
+                                    <p className="text-gray-700">Searching for recent information from the internet about {item.topic}</p>
                                 </div>
                             ))}
                         </div>
@@ -195,8 +188,8 @@ export const AGUI = () => {
             {/* Welcome message that disappears when there are messages */}
             {visibleMessages.length === 0 && (
                 <div className="absolute top-[25%] left-0 right-0 mx-auto w-full max-w-3xl z-40 pl-10">
-                    <h1 className="text-4xl font-bold text-black mb-3">Hello there!</h1>
-                    <p className="text-2xl text-gray-500">Tell me a topic to create a haiku about it.</p>
+                    <h1 className="text-4xl font-bold text-black mb-3">Hello, I am Haiku agent!</h1>
+                    <p className="text-2xl text-gray-500">"I can create a haiku based on a recent news topic—just tell me the subject, and I’ll turn it into poetry."</p>
                 </div>
             )}
             
