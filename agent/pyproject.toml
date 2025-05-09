@@ -3,6 +3,7 @@ name = "agent"
 version = "0.1.0"
 description = ""
 readme = "README.md"
+authors = ["Orca <testapp@copilotkit.ai>"]
 
 [tool.poetry.dependencies]
 python = ">=3.12,<3.13"
