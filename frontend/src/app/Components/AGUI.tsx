@@ -3,11 +3,46 @@
 import { CopilotChat, useCopilotChatSuggestions } from "@copilotkit/react-ui"
 import { suggestionPrompt } from "../prompts"
 import { useCoAgent, useCoAgentStateRender, useCopilotAction, useCopilotChat } from "@copilotkit/react-core"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
+import Image from "next/image"
+
 export const AGUI = () => {
     const [japanese, setJapanese] = useState<string[]>([])
     const [english, setEnglish] = useState<string[]>([])
-    const { visibleMessages, stopGeneration } = useCopilotChat()
+    const { visibleMessages } = useCopilotChat()
+    
+    // Track if haiku is accepted globally to prevent loops
+    const [haikuAccepted, setHaikuAccepted] = useState(false)
+    const respondedRef = useRef(false)
+    
+    // Add useCoAgent hook to track agent state and node
+    const {
+        state: agentState,
+        nodeName
+    } = useCoAgent<{
+        document: string;
+    }>({
+        name: "AG_UI",
+        initialState: {
+            document: ""
+        }
+    })
+    
+    // Log node name and messages for debugging
+    useEffect(() => {
+        console.log("Current node name:", nodeName)
+        console.log("Has accepted:", haikuAccepted)
+        console.log("Responded ref:", respondedRef.current)
+    }, [nodeName, haikuAccepted])
+    
+    // Reset the responded state when the node changes to start_flow
+    useEffect(() => {
+        if (nodeName === "start_flow" && !haikuAccepted) {
+            respondedRef.current = false;
+            console.log("Reset responded state for new flow");
+        }
+    }, [nodeName, haikuAccepted]);
+    
     useCopilotChatSuggestions({
         instructions: suggestionPrompt,
         minSuggestions: 1,
@@ -17,8 +52,12 @@ export const AGUI = () => {
     useCoAgentStateRender({
         name: "AG_UI",
         render: ({ state }) => {
+            // Don't show verification components if haiku is already accepted
+            if (haikuAccepted) {
+                return null;
+            }
+            
             if (state.tavily_response) {
-                
                 console.log("state", state.tavily_response)
                 return (
                     <div className="bg-white p-6 rounded shadow-lg border text-black border-gray-200 mt-5 mb-5">
@@ -41,77 +80,105 @@ export const AGUI = () => {
                     </div>
                 )
             }
+            else if (state.haiku_verification) {
+                console.log("haiku verification state", state.haiku_verification)
+                const { steps, japanese, english } = state.haiku_verification
+                
+                return (
+                    <div className="bg-white p-6 rounded shadow-lg border text-black border-gray-200 mt-5 mb-5">
+                        <div className="space-y-4">
+                            {steps.map((step: any, index: number) => (
+                                <div key={index} className="flex items-center space-x-3">
+                                    <div className="w-6 h-6 flex items-center justify-center">
+                                        {step.completed ? (
+                                            <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                            </svg>
+                                        ) : (
+                                            <div className="w-4 h-4 border-2 border-gray-300 rounded-full animate-spin border-t-black"></div>
+                                        )}
+                                    </div>
+                                    <p className="text-gray-700">{step.task} - {step.completed ? " completed" : " in progress"} </p>
+                                </div>
+                            ))}
+                        </div>
+                        
+                        <div className="mt-6" style={{ display: 'flex', gap: '2rem' }}>
+                            <div>
+                                {japanese && japanese.map((item: string, index: number) => (
+                                    <p key={index} className="text-indigo-900">{item}</p>
+                                ))}
+                            </div>
+                            <div>
+                                {english && english.map((item: string, index: number) => (
+                                    <p key={index} className="text-rose-700 italic">{item}</p>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
             else {
                 return (null)
             }
         }
     })
 
-
-    // console.log("state", state)
-
-
-    useCopilotAction({
-        name: "haiku_master_verify",
-        description: "Verify the generated haiku",
-        renderAndWaitForResponse: ({ status, args, respond }) => {
-            let japanese = args.japanese
-            let english = args.english
-            useEffect(() => {
-                const timer = setTimeout(() => {
-                    setCompleted(true)
-                    if(respond){
-                        setJapanese(args.japanese)
-                        setEnglish(args.english)
-                        respond("Successfully Verified the generated haiku by Haiku Master !!!")
-                    }
-                }, 3000)
-                return () => clearTimeout(timer)
-            }, [])
-            // console.log("args", args)
-            // const [accepted, setAccepted] = useState<boolean | null>(null)
-            const [completed, setCompleted] = useState<boolean>(false)
-            return (
-                <div className="bg-white p-6 rounded shadow-lg border text-black border-gray-200 mt-5 mb-5">
-                    <h2 className="text-lg font-bold mb-4">Haiku Verification</h2>
-                    <div className="flex mb-6  items-center space-x-3">
-                        <div className="w-6 h-6 flex items-center justify-center">
-                            {completed ? (
-                                <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                            ) : (
-                                <div className="w-4 h-4 border-2 border-gray-300 rounded-full animate-spin border-t-black"></div>
-                            )}
-                        </div>
-                        <p className="text-gray-700">{completed ? "Successfully Verified the generated haiku by Haiku Master !!!" : "Verifiying the generated haiku by Haiku Master"}</p>
-                    </div>
-                    <div style={{ display: 'flex', gap: '2rem' }}>
-                        <div>
-                            {japanese.map((item: string, index: number) => (
-                                <p key={index}>{item}</p>
-                            ))}
-                        </div>
-                        <div>
-                            {english.map((item: string, index: number) => (
-                                <p key={index}>{item}</p>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )
-        }
-    })
-
     useCopilotAction({
         name: "render_haiku",
         description: "Render the Confirmed haikus",
-        render: () => {
-            stopGeneration()
-            console.log("japanese", japanese)
-            console.log("english", english)
+        followUp: false,
+        render: ({ status, args }) => {
+            console.log("Rendering haiku with args:", args, "Status:", status, "Accepted:", haikuAccepted, "Responded:", respondedRef.current)
+            const [userChoice, setUserChoice] = useState<string | null>(null)
+            
+            // Set haiku from args or use existing state
+            useEffect(() => {
+                if (args && args.japanese && args.english) {
+                    setJapanese(args.japanese)
+                    setEnglish(args.english)
+                }
+            }, [args])
+            
+            // Function to safely respond only once
+            const safeRespond = (accepted: boolean) => {
+                if (!respondedRef.current) {
+                    respondedRef.current = true;
+                    console.log("Responding with:", accepted);
+                    // respond({ accepted });
+                }
+            };
+            
+            // const handleAccept = () => {
+            //     if (respondedRef.current || haikuAccepted) {
+            //         console.log("Already responded or accepted, ignoring click");
+            //         return;
+            //     }
+                
+            //     setUserChoice("accepted");
+            //     setHaikuAccepted(true);
+            //     safeRespond(true);
+            // };
+
+            // const handleRecreate = () => {
+            //     if (respondedRef.current || haikuAccepted) {
+            //         console.log("Already responded or accepted, ignoring click");
+            //         return;
+            //     }
+                
+            //     setUserChoice("recreate");
+            //     safeRespond(false);
+            // };
+
+            // If haiku already accepted in parent component, update local UI state
+            // useEffect(() => {
+            //     if (haikuAccepted && userChoice === null) {
+            //         setUserChoice("accepted");
+            //     }
+            // }, [haikuAccepted, userChoice]);
+
             return (
-                <div className="bg-gradient-to-br from-white to-blue-50 p-8 rounded-xl shadow-lg border border-blue-100 max-w-3xl mx-auto my-6 transform hover:scale-[1.02] transition-transform duration-300">
+                <div className="bg-gradient-to-br from-white to-blue-50 p-8 rounded-xl shadow-lg border border-blue-100 max-w-3xl my-6 transform hover:scale-[1.02] transition-transform duration-300">
                     <div className="grid grid-cols-2 gap-12">
                         <div className="space-y-6 relative">
                             <div className="absolute -left-4 top-0 w-1 h-full bg-gradient-to-b from-indigo-400 to-indigo-200 rounded-full"></div>
@@ -138,6 +205,37 @@ export const AGUI = () => {
                             </div>
                         </div>
                     </div>
+                    
+                    {/* {userChoice === null && !haikuAccepted && (
+                        <div className="flex justify-center gap-4 mt-8">
+                            <button 
+                                onClick={handleAccept}
+                                className={`px-6 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 font-medium transition-colors ${
+                                    status === "executing" && !respondedRef.current ? "cursor-pointer" : "cursor-default opacity-50"
+                                }`}
+                                disabled={status !== "executing" || respondedRef.current}
+                            >
+                                Accept Haiku
+                            </button>
+                            <button 
+                                onClick={handleRecreate}
+                                className={`px-6 py-2 bg-amber-500 text-white rounded-md hover:bg-amber-600 font-medium transition-colors ${
+                                    status === "executing" && !respondedRef.current ? "cursor-pointer" : "cursor-default opacity-50"
+                                }`}
+                                disabled={status !== "executing" || respondedRef.current}
+                            >
+                                Generate New Haiku
+                            </button>
+                        </div>
+                    )}
+                     */}
+                    {/* {(userChoice !== null || haikuAccepted) && (
+                        <div className="mt-6 text-center">
+                            <div className="mt-4 bg-gray-200 text-black py-2 px-4 rounded inline-block">
+                                {userChoice === "accepted" || haikuAccepted ? "✓ Haiku Accepted" : "⟳ Generating New Haiku..."}
+                            </div>
+                        </div>
+                    )} */}
                 </div>
             )
         }
@@ -147,12 +245,31 @@ export const AGUI = () => {
     console.log("visibleMessages", visibleMessages)
 
     return (
-        <div className="h-screen w-screen bg-white flex justify-center items-center">
-            <CopilotChat labels={
-                {
-                    initial: "Tell me a topic of your choice to create a haiku about it",
-                }
-            } className="h-screen w-300 py-6" />
+        <div className="h-screen w-screen bg-white flex flex-col">
+            {/* Logo in the top left */}
+            <div className="p-8 bg-white flex items-center">
+                <div className="flex items-center mr-4">
+                    <Image 
+                        src="/copilotkit_logo.svg" 
+                        alt="CopilotKit Logo" 
+                        width={180} 
+                        height={60}
+                    />
+                </div>
+                {/* <h1 className="text-2xl font-light text-gray-200">Haiku Generator</h1> */}
+            </div>
+            
+            {/* Welcome message that disappears when there are messages */}
+            {visibleMessages.length === 0 && (
+                <div className="absolute top-[25%] left-70 z-40">
+                    <h1 className="text-4xl font-bold text-black mb-3">Hello there!</h1>
+                    <p className="text-2xl text-gray-500">Tell me a topic to create a haiku about it.</p>
+                </div>
+            )}
+            
+            <div className="flex-1 flex justify-center items-center">
+                <CopilotChat  className="h-full w-300 py-6" />
+            </div>
         </div>
     )
 }
