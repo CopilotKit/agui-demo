@@ -61,7 +61,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
         "type": "function",
         "function": {
             "name": "get_topics",
-            "description": "Get topics to search for haiku creation",
+            "description": "Get 3 topics to search for haiku creation",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -70,7 +70,7 @@ async def search_node(state: AgentState, config: RunnableConfig):
                         "items": {
                             "type": "string"
                         },
-                        "description": "List of topics to search for (exact 3 topics)"
+                        "description": "List of 3 topics to search for (exact 3 topics)"
                     }
                 },
                 "required": ["topics"]
