@@ -18,7 +18,7 @@ from copilotkit.langgraph import (
 from copilotkit.langgraph import (copilotkit_exit)
 # OpenAI imports
 from langchain_openai import ChatOpenAI
-from langchain_core.messages import SystemMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 
 from dotenv import load_dotenv
 load_dotenv() 
@@ -46,26 +46,36 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     """
     tavily_response = []
     print("Last MEssage: ",state["messages"][-1])
+    model = ChatOpenAI(model="gpt-4o")
+    
+    # print("ai_response: ",ai_response.content.split(','))
+    
+    
+    tavily_responses = []    
     if(state["messages"][-1].name != "haiku_master_verify"):
-        tavily_client = TavilyClient(api_key="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")
+        ai_response = await model.ainvoke([
+            SystemMessage(content="You are helpful assitant who is going to help me with identifying the topics the user want me to generate haiku about.if the user says 'Haiku on Politics', you should return 'Politics','Donald Trump','Modi'. Strictly only give three options"),
+            HumanMessage(content=state["messages"][-1].content)
+        ])
         print("tavily search: ",state["messages"][-1].content)
-        tavily_response = tavily_client.search(state["messages"][-1].content,'basic','news','week',7,3)
-        tavily_response = tavily_response['results']
-        tavily_response = list(map(lambda x: {
-            'url': x['url'],
-            'title': x['title'],
-            'content': x['content'],
-            'completed': False,
-            'published_date': x.get('published_date')  # Using get() in case published_date doesn't exist
-        }, tavily_response))
-        state['tavily_response'] = tavily_response
-        await copilotkit_emit_state(config, state)
+        topics = ai_response.content.split(',')
         
+        topics = list(map(lambda x: {
+            'topic': x,
+            'completed': False,
+        }, topics))
+        state['tavily_response'] = topics
+        await copilotkit_emit_state(config, state)
         for item in state['tavily_response']:
-            await asyncio.sleep(1)
+            tavily_client = TavilyClient()
+            tavily_response = tavily_client.search(item['topic'],'basic','news','week',7,3)
+            tavily_responses.append(tavily_response['results'][0]['content'])
+            # await asyncio.sleep(1)
+            # item['tavily_response'] = tavily_response['results']
             item['completed'] = True
             await copilotkit_emit_state(config, state)
         
+        print("tavily_responses: ",tavily_responses)
     
     # print(json.dumps(response, indent=4))
     GENERATE_HAIKU_TOOL = {
@@ -73,7 +83,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     "function": {
         "name": "generate_haiku",
         "description": f"""
-        Generate a haiku poem based on the user's request. The user's request is {state["messages"][-1].content}. Make sure to generate the haiku strictly based on the content provided here : {tavily_response}
+        Generate a haiku poem based on the user's request. The user's request is {state["messages"][-1].content}. Make sure to generate the haiku strictly based on the content provided here : {tavily_responses}
         """,
         "parameters": {
             "type": "object",
@@ -103,11 +113,10 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     You are a helpful assistant for generating Haiku poems. 
     To generate the poem, you MUST use the generate_haiku tool.
     Once the haiku is generated, you MUST use the haiku_master_verify tool.
-    Once the haiku is verified, you MUST use the render_haiku tool.
+    Once the haiku is verified, you MUST use the render_haiku tool. THat will be the end of a flow.
     """
 
     # Define the model
-    model = ChatOpenAI(model="gpt-4o")
     
     # Define config for the model with emit_intermediate_state to stream tool calls to frontend
     if config is None:
@@ -205,9 +214,10 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             return Command(
                 goto=END,
                 update={
+                    **state,
                     "messages": messages,
                     # "haiku": tool_call_args["haiku"],
-                    "tavily_response": tavily_response or state['tavily_response']
+                    # "tavily_response": tavily_response or state['tavily_response']
                 }
             )
     
@@ -238,6 +248,7 @@ async def chat_node(state: AgentState, config: RunnableConfig):
             return Command(
                 goto=END,
                 update={
+                    **state,
                     # "tavily_response": tavily_response or state['tavily_response'],
                     "messages": messages,
                 }
@@ -248,8 +259,9 @@ async def chat_node(state: AgentState, config: RunnableConfig):
     return Command(
         goto=END,
         update={
+            **state,
             "messages": messages,
-            "tavily_response": tavily_response or state['tavily_response']
+            # "tavily_response": tavily_response or state['tavily_response']
         }
     )
 

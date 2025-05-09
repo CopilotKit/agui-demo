@@ -7,7 +7,7 @@ import { useEffect, useState } from "react"
 export const AGUI = () => {
     const [japanese, setJapanese] = useState<string[]>([])
     const [english, setEnglish] = useState<string[]>([])
-    const { visibleMessages } = useCopilotChat()
+    const { visibleMessages, stopGeneration } = useCopilotChat()
     useCopilotChatSuggestions({
         instructions: suggestionPrompt,
         minSuggestions: 1,
@@ -34,7 +34,7 @@ export const AGUI = () => {
                                             <div className="w-4 h-4 border-2 border-gray-300 rounded-full animate-spin border-t-black"></div>
                                         )}
                                     </div>
-                                    <p className="text-gray-700">Extracting data from {item.url}</p>
+                                    <p className="text-gray-700">Extracting information from internet about {item.topic}</p>
                                 </div>
                             ))}
                         </div>
@@ -88,53 +88,16 @@ export const AGUI = () => {
                     </div>
                     <div style={{ display: 'flex', gap: '2rem' }}>
                         <div>
-                            <p>{japanese[0]}</p>
-                            <p>{japanese[1]}</p>
-                            <p>{japanese[2]}</p>
+                            {japanese.map((item: string, index: number) => (
+                                <p key={index}>{item}</p>
+                            ))}
                         </div>
                         <div>
-                            <p>{english[0]}</p>
-                            <p>{english[1]}</p>
-                            <p>{english[2]}</p>
+                            {english.map((item: string, index: number) => (
+                                <p key={index}>{item}</p>
+                            ))}
                         </div>
                     </div>
-                    {/* {accepted === null && (
-                        <div className="flex justify-end space-x-4">
-                            <button
-                                className={`bg-gray-200 text-black py-2 px-4 rounded disabled:opacity-50 ${status === "executing" ? "cursor-pointer" : "cursor-default"
-                                    }`}
-                                disabled={status !== "executing"}
-                                onClick={() => {
-                                    if (respond) respond("Changes rejected")
-                                    else return
-                                    setAccepted(false)
-                                }}
-                            >
-                                Reject
-                            </button>
-                            <button
-                                className={`bg-black text-white py-2 px-4 rounded disabled:opacity-50 ${status === "executing" ? "cursor-pointer" : "cursor-default"
-                                    }`}
-                                disabled={status !== "executing"}
-                                onClick={() => {
-                                    if (respond) respond("Changes accepted")
-                                    else return
-                                    setAccepted(true)
-                                    setJapanese(args.japanese)
-                                    setEnglish(args.english)
-                                }}
-                            >
-                                Confirm
-                            </button>
-                        </div>
-                    )}
-                    {accepted !== null && (
-                        <div className="flex justify-end">
-                            <div className="mt-4 bg-gray-200 text-black py-2 px-4 rounded inline-block">
-                                {accepted ? "✓ Accepted" : "✗ Rejected"}
-                            </div>
-                        </div>
-                    )} */}
                 </div>
             )
         }
@@ -144,25 +107,34 @@ export const AGUI = () => {
         name: "render_haiku",
         description: "Render the Confirmed haikus",
         render: () => {
+            stopGeneration()
             console.log("japanese", japanese)
             console.log("english", english)
             return (
-                <div className="bg-white p-6 rounded-lg shadow-md border border-gray-200 max-w-2xl mx-auto my-4">
-                    <div className="grid grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-gray-700 mb-2">Japanese</h3>
-                            <div className="space-y-2 text-black">
-                                <p className="text-xl">{japanese[0]}</p>
-                                <p className="text-xl">{japanese[1]}</p>
-                                <p className="text-xl">{japanese[2]}</p>
+                <div className="bg-gradient-to-br from-white to-blue-50 p-8 rounded-xl shadow-lg border border-blue-100 max-w-3xl mx-auto my-6 transform hover:scale-[1.02] transition-transform duration-300">
+                    <div className="grid grid-cols-2 gap-12">
+                        <div className="space-y-6 relative">
+                            <div className="absolute -left-4 top-0 w-1 h-full bg-gradient-to-b from-indigo-400 to-indigo-200 rounded-full"></div>
+                            <h3 className="text-xl font-medium text-indigo-800 mb-4 flex items-center">
+                                <span className="mr-2">🇯🇵</span>
+                                Japanese
+                            </h3>
+                            <div className="space-y-4 text-black">
+                                {japanese.map((item: string, index: number) => (
+                                    <p key={index} className="text-2xl font-light leading-relaxed tracking-wide text-indigo-900">{item}</p>
+                                ))}
                             </div>
                         </div>
-                        <div className="space-y-4">
-                            <h3 className="text-lg font-semibold text-gray-700 mb-2">English</h3>
-                            <div className="space-y-2">
-                                <p className="text-gray-600">{english[0]}</p>
-                                <p className="text-gray-600">{english[1]}</p>
-                                <p className="text-gray-600">{english[2]}</p>
+                        <div className="space-y-6 relative">
+                            <div className="absolute -left-4 top-0 w-1 h-full bg-gradient-to-b from-rose-400 to-rose-200 rounded-full"></div>
+                            <h3 className="text-xl font-medium text-rose-800 mb-4 flex items-center">
+                                <span className="mr-2">🇬🇧</span>
+                                English
+                            </h3>
+                            <div className="space-y-4">
+                                {english.map((item: string, index: number) => (
+                                    <p key={index} className="text-lg text-rose-700 leading-relaxed italic">{item}</p>
+                                ))}
                             </div>
                         </div>
                     </div>
